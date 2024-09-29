@@ -1,53 +1,11 @@
 <Window x:Class="OptimizingWindows"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Optimizing Windows" 
-        WindowStyle="None"
-        WindowState="Maximized"
-        Background="Black"
-        Loaded="Window_Loaded">
-
+        Title="Optimizing Windows" Height="300" Width="400">
     <Grid>
-        <TextBlock x:Name="MessageText" 
-                   Text="Optimizando Windows, Espere..." 
-                   FontSize="24" 
-                   Foreground="White" 
-                   HorizontalAlignment="Center" 
-                   VerticalAlignment="Center" 
-                   TextAlignment="Center" Margin="210,232,210,263" />
-
-        <TextBlock x:Name="ProgressText" 
-                   FontSize="24" 
-                   Foreground="White" 
-                   HorizontalAlignment="Center" 
-                   VerticalAlignment="Center" 
-                   Margin="292,265,420,230" 
-                   TextAlignment="Center" Width="48" Text="0%" />
-
-        <TextBlock x:Name="WarningText" 
-                   Text="No apague el equipo" 
-                   FontSize="24" 
-                   Foreground="White" 
-                   HorizontalAlignment="Center" 
-                   VerticalAlignment="Center" 
-                   Margin="268,295,268,200" 
-                   TextAlignment="Center" />
-
-        <TextBlock x:Name="SupportText" 
-                   Text="Soporte y Aportes" 
-                   FontSize="12" 
-                   Foreground="White" 
-                   HorizontalAlignment="Center" 
-                   VerticalAlignment="Center" 
-                   Margin="332,332,332,179" 
-                   TextAlignment="Center" />
-        <TextBlock x:Name="WarningText_Copy" 
-            Text=" Completado" 
-            FontSize="24" 
-            Foreground="White" 
-            HorizontalAlignment="Center" 
-            VerticalAlignment="Center" 
-            Margin="330,266,292,229" 
-            TextAlignment="Center" />
+        <TextBlock Text="Optimizando Windows, Espere..." FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        <TextBlock Text="0%" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,30,0,0"/>
+        <TextBlock Text="No apague el equipo." FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,60,0,0"/>
+        <TextBlock Text="Soporte y Aportes" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,10"/>
     </Grid>
 </Window>
