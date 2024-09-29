@@ -8,7 +8,7 @@
     <Grid>
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
             <TextBlock x:Name="MessageTextBlock" 
-                       Text="Trabajando en la optimización, espere" 
+                       Text="Trabajando en la optimización, Espere..." 
                        FontSize="24" 
                        Foreground="White" 
                        HorizontalAlignment="Center" 
@@ -20,7 +20,7 @@
                        HorizontalAlignment="Center" 
                        Margin="0,0,0,5" />
             <TextBlock x:Name="NoApagueTextBlock" 
-                       Text="No apague el equipo" 
+                       Text="No apague el equipo." 
                        FontSize="24" 
                        Foreground="White" 
                        HorizontalAlignment="Center" 
