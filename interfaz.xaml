@@ -1,0 +1,36 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Optimización de Windows" 
+        WindowStyle="None" 
+        Background="Black" 
+        ResizeMode="NoResize" 
+        WindowState="Maximized">
+    <Grid>
+        <StackPanel VerticalAlignment="Top" Margin="0,50,0,0" HorizontalAlignment="Center">
+            <TextBlock x:Name="MessageTextBlock" 
+                       Text="Trabajando en la optimización, espere" 
+                       FontSize="24" 
+                       Foreground="White" 
+                       HorizontalAlignment="Center" 
+                       Margin="0,0,0,5" />
+            <TextBlock x:Name="PercentageTextBlock" 
+                       Text="0 % Completado" 
+                       FontSize="24" 
+                       Foreground="White" 
+                       HorizontalAlignment="Center" 
+                       Margin="0,0,0,5" />
+            <TextBlock x:Name="NoApagueTextBlock" 
+                       Text="No apague el equipo" 
+                       FontSize="24" 
+                       Foreground="White" 
+                       HorizontalAlignment="Center" 
+                       Margin="0,0,0,5" />
+            <TextBlock x:Name="SoporteTextBlock" 
+                       Text="Soporte y Aportes" 
+                       FontSize="12" 
+                       Foreground="White" 
+                       HorizontalAlignment="Center" 
+                       Margin="0,0,0,0" />
+        </StackPanel>
+    </Grid>
+</Window>
