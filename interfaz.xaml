@@ -5,10 +5,10 @@
         Background="Black" 
         ResizeMode="NoResize" 
         WindowState="Maximized">
-    <Grid>
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+    <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,50,0,0">
             <TextBlock x:Name="MessageTextBlock" 
-                       Text="Trabajando en la optimización, Espere..." 
+                       Text="Trabajando en la optimización, espere" 
                        FontSize="24" 
                        Foreground="White" 
                        HorizontalAlignment="Center" 
@@ -20,7 +20,7 @@
                        HorizontalAlignment="Center" 
                        Margin="0,0,0,5" />
             <TextBlock x:Name="NoApagueTextBlock" 
-                       Text="No apague el equipo." 
+                       Text="No apague el equipo" 
                        FontSize="24" 
                        Foreground="White" 
                        HorizontalAlignment="Center" 
