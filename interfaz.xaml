@@ -6,7 +6,7 @@
         ResizeMode="NoResize" 
         WindowState="Maximized">
     <Grid>
-        <StackPanel VerticalAlignment="Top" Margin="0,50,0,0" HorizontalAlignment="Center">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
             <TextBlock x:Name="MessageTextBlock" 
                        Text="Trabajando en la optimización, espere" 
                        FontSize="24" 
