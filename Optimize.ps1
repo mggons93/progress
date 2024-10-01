@@ -59,8 +59,8 @@ if ($numberOfAdapters -eq 1) {
     Write-Host "Aplicando configuracion para tarjeta de red #1"
 	Write-Host "Agregando DNS de Adguard - ELiminar publicidad"
 	Get-NetAdapterBinding -ComponentID ms_tcpip6
-	set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses 8.8.8.8,181.57.227.194,190.165.72.48
-	set-DnsClientServerAddress -InterfaceAlias "Wi-Fi" -ServerAddresses 8.8.8.8,181.57.227.194,190.165.72.48
+	set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses 181.57.227.194,8.8.8.8
+	set-DnsClientServerAddress -InterfaceAlias "Wi-Fi" -ServerAddresses 181.57.227.194,8.8.8.8
 	Disable-NetAdapterBinding -Name 'Ethernet' -ComponentID 'ms_tcpip6'
 	Disable-NetAdapterBinding -Name 'Wi-Fi' -ComponentID 'ms_tcpip6'
 	ipconfig /flushdns
@@ -70,8 +70,8 @@ if ($numberOfAdapters -eq 1) {
     Write-Host "Aplicando configuracion para tarjeta de red #2"
 	Write-Host "Agregando DNS de Adguard - ELiminar publicidad"
 	Get-NetAdapterBinding -ComponentID ms_tcpip6
-	set-DnsClientServerAddress -InterfaceAlias "Ethernet 2" -ServerAddresses 8.8.8.8,181.57.227.194,190.165.72.48
-	set-DnsClientServerAddress -InterfaceAlias "Wi-Fi 2" -ServerAddresses 8.8.8.8,181.57.227.194,190.165.72.48
+	set-DnsClientServerAddress -InterfaceAlias "Ethernet 2" -ServerAddresses 181.57.227.194,8.8.8.8
+	set-DnsClientServerAddress -InterfaceAlias "Wi-Fi 2" -ServerAddresses 181.57.227.194,8.8.8.8
 	Disable-NetAdapterBinding -Name 'Ethernet 2' -ComponentID 'ms_tcpip6'
 	Disable-NetAdapterBinding -Name 'Wi-Fi 2' -ComponentID 'ms_tcpip6'
 	ipconfig /flushdns
