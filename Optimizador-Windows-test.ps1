@@ -560,9 +560,20 @@ $host.ui.RawUI.WindowTitle = $title
 
     Write-Output '27% Completado'
     # Guardar la configuración regional actual
-    $CurrentLocale = Get-WinSystemLocale
-    # Establecer la nueva configuración regional (por ejemplo, en-US)
-    Set-WinSystemLocale -SystemLocale en-US
+	# Obtener la configuración regional actual
+	$CurrentLocale = Get-WinSystemLocale
+
+	# Comprobar si $CurrentLocale y su propiedad SystemLocale son válidos
+	if ($CurrentLocale -and $CurrentLocale.SystemLocale) {
+    Write-Host "Configuración regional actual: $($CurrentLocale.SystemLocale)"
+    
+    # Establecer la nueva configuración regional
+    $newLocale = "en-US"
+    Set-WinSystemLocale -SystemLocale $newLocale
+    Write-Host "La configuración regional se ha cambiado a: $newLocale"
+	} else {
+    Write-Host "La configuración regional actual no está disponible. No se puede cambiar."
+	}
     Write-Host "Cambiando región para la instalación de recursos"
     Write-Host "Descargando en segundo plano Visual C++ y Runtime"
 
