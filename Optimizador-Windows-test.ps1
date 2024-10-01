@@ -1512,7 +1512,7 @@ Write-Host "Enable Sensor de Almacenamiento x30 dias"
 			}
 
 			# Abra la pÃ¡gina "Aplicaciones en segundo plano"
-			Start-Process -FilePath ms-settings:privacy-backgroundapps
+			#Start-Process -FilePath ms-settings:privacy-backgroundapps
 			
 # Obtener todas las tarjetas de red
 $networkAdapters = Get-NetAdapter
@@ -1723,7 +1723,7 @@ if (IsSSD -driveLetter $systemDriveLetter) {
 
 Write-Output '99% Completado'
 # Configuración y ejecución de Cleanmgr
-Start-Process -FilePath "cmd.exe" -ArgumentList "/c Cleanmgr /sagerun:65535" -Wait
+Start-Process -FilePath "cmd.exe" -ArgumentList "/c Cleanmgr /sagerun:65535" -WindowStyle Hidden -Wait
 
 # Eliminando carpeta ODT -> Proceso Final
 Remove-Item -Path "C:\ODT" -Recurse -Force
