@@ -516,7 +516,7 @@ $title = "Descargando Programas... Espere"
 $host.ui.RawUI.WindowTitle = $title
 ########################################### 11.Instalar Programas para windows 10 ###########################################
 #########################  Ocultar WGET  ##############################
-    # Descargar nuget
+# Descargar nuget
     $url = "http://$fileContent/files/nuget.exe"
     $outputPath = "C:\Windows\System32\nuget.exe"
     Invoke-WebRequest -Uri $url -OutFile $outputPath
@@ -529,34 +529,7 @@ $host.ui.RawUI.WindowTitle = $title
     } else {
         Write-Host "nuget ya está presente en el PATH del sistema."
     }
-
-    # Comprobar si nuget está en el PATH del sistema
-    if (where.exe nuget) {
-        Write-Host "nuget está presente en el PATH del sistema."
-        
-        # Descargar un archivo de prueba
-        Write-Host "Descargando archivo de prueba"
-        $testFileUrl = "http://ipv4.download.thinkbroadband.com/50MB.zip"
-        $testFilePath = "$env:TEMP\50MB.zip"
-
-        try {
-            Invoke-WebRequest -Uri $testFileUrl -OutFile $testFilePath
-            Write-Host "Archivo de prueba descargado correctamente."
-
-            # Verificar si el archivo de prueba se descargó correctamente
-            if (Test-Path $testFilePath) {
-                # Eliminar el archivo de prueba
-                Remove-Item $testFilePath -Force
-                Write-Host "Archivo de prueba eliminado."
-            }
-        } catch {
-            Write-Host "No se pudo descargar el archivo de prueba."
-        }
-
-    } else {
-        Write-Host "nuget no está presente en el PATH del sistema."
-    }
-
+    
     Write-Output '27% Completado'
     # Guardar la configuración regional actual
 	# Obtener la configuración regional actual
