@@ -1,19 +1,18 @@
-﻿# Ruta del archivo de log
-$logFilePath = "C:\log.txt"
-# Verifica si el archivo de transcripción ya existe y lo elimina si es necesario
-if (Test-Path $logFilePath) {
-    Remove-Item -Path $logFilePath -Force
+# Verificar si el script se está ejecutando como administrador
+function Test-Admin {
+    $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
-# Asegúrate de que el directorio existe
-$directory = [System.IO.Path]::GetDirectoryName($logFilePath)
-if (!(Test-Path $directory)) {
-    New-Item -Path $directory -ItemType Directory -Force | Out-Null
+if (-not (Test-Admin)) {
+    # Si no es administrador, reiniciar como administrador
+    $scriptPath = $MyInvocation.MyCommand.Path
+    Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`"" -Verb RunAs
+    exit
 }
 
-Write-Output '1%'
-# Iniciar la transcripción
-Start-Transcript -Path $logFilePath > $null
+Write-Output '1% Completado'
 
 # Agregar excepciones
 Add-MpPreference -ExclusionPath "C:\Windows\Setup\FilesU"
@@ -59,13 +58,13 @@ Write-Host "El intervalo mínimo entre la creación de puntos de restauración s
 # Ruta del Registro
 $rutaRegistro = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\ReserveManager"
 Dism /Online /Set-ReservedStorageState /State:Disabled
-cls
+
 ########################################### 1. COMPROBACION DE SERVICIO INTERNET  ###########################################
 $title = "Verificando acceso a internet..."
 $host.ui.RawUI.WindowTitle = $title
 
 # Definir una función para encapsular el código principal
-function Comprobar-Internet {
+function Test-InternetConnection {
     # Comprobar si hay conexión a internet haciendo ping a google.com
     $internet = Test-Connection -ComputerName google.com -Count 1 -Quiet
     # Si hay conexión, ejecutar el script
@@ -83,9 +82,6 @@ function Comprobar-Internet {
 
 # Bucle hasta que se tenga conexión a Internet
 while (-not (Test-Connection -ComputerName google.com -Count 1 -Quiet)) {
-    # Limpiar pantalla
-    cls
-
     # Mostrar mensaje de verificación
     Write-Host "Verificando tu conexión a internet..."
     Write-Host "Recuerda conectar el cable de red o Wi-Fi para proceder con la instalación."
@@ -95,10 +91,9 @@ while (-not (Test-Connection -ComputerName google.com -Count 1 -Quiet)) {
 }
 
 # Llamar a la función para ejecutar el script una vez que se tiene conexión
-Comprobar-Internet
+Test-InternetConnection
 
-
- Write-Output '2%';
+ Write-Output '2% Completado'
 ########################################### 2. MODULO DE OPTIMIZACION DE INTERNET ###########################################
 # Define la URL de descarga y la ruta de destino
 $wgetUrl = "https://eternallybored.org/misc/wget/releases/wget-1.21.4-win64.zip"
@@ -126,7 +121,7 @@ Move-Item -Path "$destinationPath\wget.exe" -Destination "C:\Windows\System32\wg
 # Eliminar el directorio residual
 Remove-Item -Path $destinationPath -Recurse
 
-Write-Output "wget ha sido descargado y extraido a C:\wget.exe"
+Write-Host "wget ha sido descargado y extraido a C:\wget.exe"
 
 # Comprobar si wget esta en C:\Windows\System32
 # Descargar wget
@@ -164,7 +159,7 @@ try {
 } catch {
     Write-Host "Error al establecer el estado del almacenamiento reservado: $($_.Exception.Message)"
 }
-Write-Output '5%'
+Write-Output '5% Completado'
 ########################################### 3. Verificado Servers de Script ###########################################
 $title = "Descargando Datos, Espere..."
 $host.ui.RawUI.WindowTitle = $title
@@ -173,39 +168,45 @@ $host.ui.RawUI.WindowTitle = $title
 $primaryServer = "http://181.57.227.194:8001/files/server.txt"
 $secondaryServer = "http://190.165.72.48:8000/files/server.txt"
 $destinationPath1 = "$env:TEMP\server.txt"
-$wgetPath = "C:\Windows\System32\wget.exe"
 
 # Función para verificar el estado del servidor
-function Test-Server($url) {
+function Test-ServerStatus {
+    param (
+        [string]$url
+    )
     try {
         $response = Invoke-WebRequest -Uri $url -Method Head -UseBasicParsing -TimeoutSec 5
-        if ($response.StatusCode -eq 200) {
-            return $true
-        } else {
-            return $false
-        }
+        return $response.StatusCode -eq 200
     } catch {
         return $false
     }
 }
 
-# Función para descargar el archivo usando wget
-function Download-File($url, $destination1) {
-    $arguments = @("-O", $destination1, $url)
-    Start-Process -FilePath $wgetPath -ArgumentList $arguments -Wait
+# Función para descargar el archivo usando Invoke-WebRequest
+function Invoke-DownloadFile {
+    param (
+        [string]$url,
+        [string]$destination
+    )
+    try {
+        Invoke-WebRequest -Uri $url -OutFile $destination -UseBasicParsing
+        #Write-Host "Descarga completada: $destination"
+    } catch {
+        #Write-Host "Error al descargar el archivo desde $url"
+    }
 }
 
 # Verificar y descargar desde el servidor primario
-if (Test-Server $primaryServer) {
-    Write-Output "El servidor primario está en línea. aplicando Servidor"
-    Download-File $primaryServer $destinationPath1
-} elseif (Test-Server $secondaryServer) {
-    Write-Output "El servidor primario está fuera de línea. Intentando con el servidor secundario..."
+if (Test-ServerStatus $primaryServer) {
+    Write-Host "El servidor primario está en línea. Aplicando Servidor..."
+    Invoke-DownloadFile $primaryServer $destinationPath1
+} elseif (Test-ServerStatus $secondaryServer) {
+    Write-Host "El servidor primario está fuera de línea. Intentando con el servidor secundario..."
     Start-Sleep 3
-    Write-Output "El servidor ecundario está en línea. aplicando Servidor"
-    Download-File $secondaryServer $destinationPath1
+    Write-Host "El servidor secundario está en línea. Aplicando Servidor..."
+    Invoke-DownloadFile $secondaryServer $destinationPath1
 } else {
-    Write-Output "Ambos servidores están fuera de línea. No se pudo descargar el archivo."
+    Write-Host "Ambos servidores están fuera de línea. No se pudo descargar el archivo."
 }
 
 ########################################### 4. Instalando Apps y Configurando Entorno #######################################
@@ -218,7 +219,7 @@ if (Test-Path -Path $destinationPath1) {
     #Write-Host $fileContent 
     start-sleep 5
 }
-Write-Output '9%'
+Write-Output '9% Completado'
 ########################################### 5. Instalador y Activando de Office 365 ###########################################
 $regPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce"
 $valueName = "Office Installer"
@@ -233,48 +234,45 @@ $outputPath1 = "$env:TEMP\MAS_31F7FD1E.cmd"
 # URL del archivo a descargar
 $url1 = "https://raw.githubusercontent.com/mggons93/Mggons/main/Validate/MAS_AIO.cmd"
 
-# Funcion para verificar el estado de activaciÃ³n de Windows
-function Check-WindowsActivation {
+# Función para obtener el estado de activación de Windows
+function Get-WindowsActivationStatus {
     $licenseStatus = (Get-CimInstance -Query "SELECT LicenseStatus FROM SoftwareLicensingProduct WHERE PartialProductKey <> null AND LicenseFamily <> null").LicenseStatus
     return $licenseStatus -eq 1
 }
 
-# Funcion para activar Windows
-function Activate-Windows {
-
-#Descargando archivo de activacion automatica.
+# Función para habilitar la activación de Windows
+function Enable-WindowsActivation {
+    # Descargando archivo de activación automática
     Write-Host "Activando Windows"
-    # Ruta del archivo de salida
-
-
+    
     # Descargar el archivo
-    Write-Host "Descargando Activacion"
+    Write-Host "Descargando Activación"
     Invoke-WebRequest -Uri $url1 -OutFile $outputPath1 > $null
 
-    # Ruta del archivo de salida
-    #$outputPath1 = "C:\MAS_31F7FD1E.cmd"
+    # Ejecutar el archivo de activación
     Start-Process -FilePath $outputPath1 /HWID -Wait
     Remove-Item -Path $outputPath1 -Force
 }
 
-# Verificar si Windows esta activado
-if (Check-WindowsActivation) {
-    Write-Output "Windows esta activado."
+# Verificar si Windows está activado
+if (Get-WindowsActivationStatus) {
+    Write-Host "Windows está activado."
     Start-Sleep 2
 } else {
-    Write-Output "Windows no esta activado. Intentando activar..."
+    Write-Host "Windows no está activado. Intentando activar..."
     Start-Sleep 2
-    Activate-Windows
+    Enable-WindowsActivation
 }
 
-# Verificar nuevamente despues de intentar activar
-if (Check-WindowsActivation) {
-    Write-Output "Windows ha sido activado exitosamente."
-     Start-Sleep 2
+# Verificar nuevamente después de intentar activar
+if (Get-WindowsActivationStatus) {
+    Write-Host "Windows ha sido activado exitosamente."
+    Start-Sleep 2
 } else {
-    Write-Output "La activacion de Windows ha fallado. Verifica la clave de producto y vuelve a intentarlo."
-}    
-Write-Output '13%'
+    Write-Host "La activación de Windows ha fallado. Verifica la clave de producto y vuelve a intentarlo."
+}
+  
+Write-Output '13% Completado'
 ########################################### Nuevas optimizaciones ###########################################
 
 # Disable Windows Spotlight and set the normal Windows Picture as the desktop background
@@ -405,7 +403,7 @@ New-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\P
 Set-ItemProperty -Path HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize -Name AppsUseLightTheme -Value 0 -Type Dword -Force
 #Stop-Process -name explorer
 #Start-Sleep -s 2
-Write-Output '18%'
+Write-Output '18% Completado'
 # Deshabilitar el Análisis de Datos de AI en Copilot+ PC
 $windowsAIPath = "HKCU:\Software\Policies\Microsoft\Windows\WindowsAI"
 if (-not (Test-Path $windowsAIPath)) {
@@ -443,7 +441,7 @@ if (Test-Path $rutaArchivo) {
     Expand-Archive -Path "$env:TEMP\Abstract.zip" -DestinationPath "C:\Windows\Web\Wallpaper\" -Force
     Remove-Item -Path "$env:TEMP\Abstract.zip"
     Start-Sleep 5
-    cls
+    
     Write-Host "El archivo ha sido descargado."
 }
 ########################################### 9. MODULO DE OPTIMIZACION DE INTERNET ###########################################
@@ -503,7 +501,14 @@ Write-Host "Aplicando cambios. Espere..."
 Start-Sleep 2
 
 $RutaCarpeta = "C:\ODT"
-Write-Output '21%'
+# Crear la carpeta si no existe
+if (-not (Test-Path -Path $RutaCarpeta)) {
+    New-Item -Path $RutaCarpeta -ItemType Directory
+    Write-Host "Carpeta creada en $RutaCarpeta"
+} else {
+    Write-Host "La carpeta ya existe en $RutaCarpeta"
+}
+Write-Output '21% Completado'
 ########################################### 10. MODULO DE OPTIMIZACION DE INTERNET ###########################################
 
 Write-Host "Instalando Programas Espere..."
@@ -512,210 +517,278 @@ $title = "Descargando Programas... Espere"
 $host.ui.RawUI.WindowTitle = $title
 ########################################### 11.Instalar Programas para windows 10 ###########################################
 #########################  Ocultar WGET  ##############################
-# Descargar nuget
-$url = "http://$fileContent/files/nuget.exe"
-$outputPath = "C:\Windows\System32\nuget.exe"
-Invoke-WebRequest -Uri $url -OutFile $outputPath
-# Agregar wget al PATH del sistema
-$existingPath = [Environment]::GetEnvironmentVariable("PATH", "Machine")
-if (-not ($existingPath -split ";" -contains $outputPath)) {
-    [Environment]::SetEnvironmentVariable("PATH", "$existingPath;$outputPath", "Machine")
-    Write-Host "nuget ha sido agregado al PATH del sistema."
-} else {
-    Write-Host "nuget ya esta presente en el PATH del sistema."
-}
+    # Descargar nuget
+    $url = "http://$fileContent/files/nuget.exe"
+    $outputPath = "C:\Windows\System32\nuget.exe"
+    Invoke-WebRequest -Uri $url -OutFile $outputPath
 
-# Comprobar si wget esta en el PATH del sistema
-if (where.exe wget) {
-    Write-Host "wget esta presente en el PATH del sistema."
-	
-    # Descargar un archivo de prueba
-	Write-Host "Descargando archivo de prueba"
-    $testFileUrl = "http://ipv4.download.thinkbroadband.com/50MB.zip"
-    $testFilePath = "$env:TEMP\50MB.zip"
-	Start-Process cmd -ArgumentList "/c wget --show-progress -q -O $testFilePath  $testFileUrl" -Wait
-
-    # Verificar si el archivo de prueba se descargÃ³ correctamente
-    if (Test-Path $testFilePath) {
-        Write-Host "Archivo de prueba descargado correctamente."
-
-        # Eliminar el archivo de prueba
-        Remove-Item $testFilePath -Force
-        Write-Host "Archivo de prueba eliminado."
+    # Agregar nuget al PATH del sistema
+    $existingPath = [Environment]::GetEnvironmentVariable("PATH", "Machine")
+    if (-not ($existingPath -split ";" -contains $outputPath)) {
+        [Environment]::SetEnvironmentVariable("PATH", "$existingPath;$outputPath", "Machine")
+        Write-Host "nuget ha sido agregado al PATH del sistema."
     } else {
-        Write-Host "No se pudo descargar el archivo de prueba."
+        Write-Host "nuget ya está presente en el PATH del sistema."
     }
-	
-} else {
-    Write-Host "wget no esta presente en el PATH del sistema."
-}
 
-Write-Output '27%'
+    # Comprobar si nuget está en el PATH del sistema
+    if (where.exe nuget) {
+        Write-Host "nuget está presente en el PATH del sistema."
+        
+        # Descargar un archivo de prueba
+        Write-Host "Descargando archivo de prueba"
+        $testFileUrl = "http://ipv4.download.thinkbroadband.com/50MB.zip"
+        $testFilePath = "$env:TEMP\50MB.zip"
+
+        try {
+            Invoke-WebRequest -Uri $testFileUrl -OutFile $testFilePath
+            Write-Host "Archivo de prueba descargado correctamente."
+
+            # Verificar si el archivo de prueba se descargó correctamente
+            if (Test-Path $testFilePath) {
+                # Eliminar el archivo de prueba
+                Remove-Item $testFilePath -Force
+                Write-Host "Archivo de prueba eliminado."
+            }
+        } catch {
+            Write-Host "No se pudo descargar el archivo de prueba."
+        }
+
+    } else {
+        Write-Host "nuget no está presente en el PATH del sistema."
+    }
+
+    Write-Output '27% Completado'
+    # Guardar la configuración regional actual
+    $CurrentLocale = Get-WinSystemLocale
+    # Establecer la nueva configuración regional (por ejemplo, en-US)
+    Set-WinSystemLocale -SystemLocale en-US
+    Write-Host "Cambiando región para la instalación de recursos"
+    Write-Host "Descargando en segundo plano Visual C++ y Runtime"
+
+    # Función para verificar si Winget está instalado
+    function Test-WingetInstalled {
+        try {
+            winget -v
+            return $true
+        } catch {
+            return $false
+        }
+    }
+
+    # Función para verificar la arquitectura del sistema
+    function Get-SystemArchitecture {
+        $architecture = (Get-WmiObject -Class Win32_OperatingSystem).OSArchitecture
+        return $architecture
+    }
+
+    # Función para instalar todos los Microsoft Visual C++ Redistributable en x64
+    function Install-AllVCRedistx64 {
+        # Lista de identificadores de paquetes de Microsoft Visual C++ Redistributable
+        $vcRedists = @(
+            "Microsoft.VCLibs.Desktop.14",
+            "Microsoft.VCRedist.2005.x64",
+            "Microsoft.VCRedist.2008.x64",
+            "Microsoft.VCRedist.2010.x64",
+            "Microsoft.VCRedist.2012.x64",
+            "Microsoft.VCRedist.2013.x64",
+            "Microsoft.VCRedist.2015+.x64",
+            "Microsoft.DotNet.Runtime.3_1",
+            "Microsoft.DotNet.Runtime.5",
+            "Microsoft.DotNet.Runtime.6",
+            "Microsoft.DotNet.Runtime.7",
+            "Microsoft.DotNet.Runtime.8",
+            "Microsoft.DotNet.DesktopRuntime.3_1",
+            "Microsoft.DotNet.DesktopRuntime.5",
+            "Microsoft.DotNet.DesktopRuntime.6",
+            "Microsoft.DotNet.DesktopRuntime.7",
+            "Microsoft.DotNet.DesktopRuntime.8",
+            "RustDesk.RustDesk",
+            "Microsoft.WindowsTerminal",
+            "7zip.7Zip"
+        )
+
+        # Instalar cada paquete de Visual C++ Redistributable
+        foreach ($vcRedist in $vcRedists) {
+            Write-Host "Instalando $vcRedist."
+            winget install --id $vcRedist -e --silent --disable-interactivity --accept-source-agreements > $null
+        }
+    }
+
+    # Función para instalar todos los Microsoft Visual C++ Redistributable en x86
+    function Install-AllVCRedistx32 {
+        # Lista de identificadores de paquetes de Microsoft Visual C++ Redistributable
+        $vcRedists = @(
+            "Microsoft.VCLibs.Desktop.14",
+            "Microsoft.VCRedist.2005.x86",
+            "Microsoft.VCRedist.2008.x86",
+            "Microsoft.VCRedist.2010.x86",
+            "Microsoft.VCRedist.2012.x86",
+            "Microsoft.VCRedist.2013.x86",
+            "Microsoft.VCRedist.2015+.x86",
+            "Microsoft.DotNet.Runtime.3_1",
+            "Microsoft.DotNet.Runtime.5",
+            "Microsoft.DotNet.Runtime.6",
+            "Microsoft.DotNet.Runtime.7",
+            "Microsoft.DotNet.Runtime.8",
+            "Microsoft.DotNet.DesktopRuntime.3_1",
+            "Microsoft.DotNet.DesktopRuntime.5",
+            "Microsoft.DotNet.DesktopRuntime.6",
+            "Microsoft.DotNet.DesktopRuntime.7",
+            "Microsoft.DotNet.DesktopRuntime.8",
+            "RustDesk.RustDesk",
+            "Microsoft.WindowsTerminal",
+            "7zip.7Zip"
+        )
+
+        # Instalar cada paquete de Visual C++ Redistributable
+        foreach ($vcRedist in $vcRedists) {
+            Write-Host "Instalando $vcRedist."
+            winget install --id $vcRedist -e --silent --disable-interactivity --accept-source-agreements > $null
+        }
+    }
+
+    # Comprobar si Winget está instalado
+    if (Test-WingetInstalled) {
+        # Obtener la arquitectura del sistema
+        $architecture = Get-SystemArchitecture
+        
+        if ($architecture -eq "32-bit") {
+            Install-AllVCRedistx32
+            Write-Host "Todos los paquetes de Microsoft Visual C++ Redistributable han sido instalados en x86"
+        } else {
+            Install-AllVCRedistx64
+            Write-Host "Todos los paquetes de Microsoft Visual C++ Redistributable han sido instalados en x64"
+        }
+    } else {
+        Write-Host "Winget no está instalado en el sistema."
+    }
+
+    Write-Host "---------------------------------"
+
+    # Restaurar la configuración regional original
+    Set-WinSystemLocale -SystemLocale $CurrentLocale.SystemLocale
 #########################################################################################
-# Guardar la configuracian regional actual
-$CurrentLocale = Get-WinSystemLocale
-# Establecer la nueva configuraciÃ³n regional (por ejemplo, en-US)
-Set-WinSystemLocale -SystemLocale en-US
-Write-Host "Cambiando region para la instalacion de recursos"
-Start-sleep 2	
-Write-Host "Descargando en segundo plano Visual C++ y Runtime"
-# FunciÂ¨Â®n para verificar si Winget estÂ¨Â¢ instalado
-function Check-WingetInstalled {
+    Write-Host "---------------------------------"
+	Write-Host "Descargando en segundo plano Archivos de instalación OEM"
+
+    # URL del archivo a descargar
+    $oemUrl = "http://$fileContent/files/OEM.exe"
+    $outputPath = "C:\OEM.exe"
+
+    # Descargar el archivo OEM
     try {
-        $wingetVersion = winget -v
-        return $true
+        Invoke-WebRequest -Uri $oemUrl -OutFile $outputPath
+        Write-Host "Archivo OEM descargado correctamente."
     } catch {
-        return $false
+        Write-Host "Error al descargar el archivo OEM: $_"
+        exit 1
     }
-}
 
-# FunciÂ¨Â®n para verificar la arquitectura del sistema
-function Get-SystemArchitecture {
-    $architecture = (Get-WmiObject -Class Win32_OperatingSystem).OSArchitecture
-    return $architecture
-}
-
-# FunciÂ¨Â®n para instalar todos los Microsoft Visual C++ Redistributable
-function Install-AllVCRedistx64 {
-    # Lista de identificadores de paquetes de Microsoft Visual C++ Redistributable
-    $vcRedists = @(
-        "Microsoft.VCLibs.Desktop.14",
-        "Microsoft.VCRedist.2005.x64",
-        "Microsoft.VCRedist.2005.x86",
-        "Microsoft.VCRedist.2008.x64",
-        "Microsoft.VCRedist.2008.x86",
-        "Microsoft.VCRedist.2010.x64",
-        "Microsoft.VCRedist.2010.x86",
-        "Microsoft.VCRedist.2012.x64",
-        "Microsoft.VCRedist.2012.x86",
-        "Microsoft.VCRedist.2013.x64",
-        "Microsoft.VCRedist.2013.x86",
-        "Microsoft.VCRedist.2015+.x64",
-        "Microsoft.VCRedist.2015+.x86",
-        "Microsoft.DotNet.Runtime.3_1",
-        "Microsoft.DotNet.Runtime.5",
-        "Microsoft.DotNet.Runtime.6",
-        "Microsoft.DotNet.Runtime.7",
-        "Microsoft.DotNet.Runtime.8",
-        "Microsoft.DotNet.Runtime.Preview",
-        "Microsoft.DotNet.DesktopRuntime.3_1",
-        "Microsoft.DotNet.DesktopRuntime.5",
-        "Microsoft.DotNet.DesktopRuntime.6",
-        "Microsoft.DotNet.DesktopRuntime.7",
-        "Microsoft.DotNet.DesktopRuntime.8",
-        "Microsoft.DotNet.DesktopRuntime.Preview",
-		"RustDesk.RustDesk",
-		"Microsoft.WindowsTerminal",
-		"7zip.7Zip"
-    )
-
-
-    # Instalar cada paquete de Visual C++ Redistributable
-    foreach ($vcRedist in $vcRedists) {
-        Write-Output "Instalando $vcRedist."
-        winget install --id $vcRedist -e --silent --disable-interactivity ---accept-source-agreements > $nul
-    }
-}
-
-# FunciÂ¨Â®n para instalar todos los Microsoft Visual C++ Redistributable
-function Install-AllVCRedistx32 {
-    # Lista de identificadores de paquetes de Microsoft Visual C++ Redistributable
-    $vcRedists = @(
-        "Microsoft.VCLibs.Desktop.14",
-        "Microsoft.VCRedist.2005.x86",
-        "Microsoft.VCRedist.2008.x86",
-        "Microsoft.VCRedist.2010.x86",
-        "Microsoft.VCRedist.2012.x86",
-        "Microsoft.VCRedist.2013.x86",
-        "Microsoft.VCRedist.2015+.x86",
-        "Microsoft.DotNet.Runtime.3_1",
-        "Microsoft.DotNet.Runtime.5",
-        "Microsoft.DotNet.Runtime.6",
-        "Microsoft.DotNet.Runtime.7",
-        "Microsoft.DotNet.Runtime.8",
-        "Microsoft.DotNet.Runtime.Preview",
-        "Microsoft.DotNet.DesktopRuntime.3_1",
-        "Microsoft.DotNet.DesktopRuntime.5",
-        "Microsoft.DotNet.DesktopRuntime.6",
-        "Microsoft.DotNet.DesktopRuntime.7",
-        "Microsoft.DotNet.DesktopRuntime.8",
-        "Microsoft.DotNet.DesktopRuntime.Preview",
-		"RustDesk.RustDesk",
-		"Microsoft.WindowsTerminal",
-		"7zip.7Zip"
-    )
-
-
-    # Instalar cada paquete de Visual C++ Redistributable
-    foreach ($vcRedist in $vcRedists) {
-        Write-Output "Instalando $vcRedist."
-        winget install --id $vcRedist -e --silent --disable-interactivity ---accept-source-agreements > $nul
-    }
-}
-
-# Comprobar si Winget estÂ¨Â¢ instalado
-if (Check-WingetInstalled) {
-    # Obtener la arquitectura del sistema
-    $architecture = Get-SystemArchitecture
-    
-    if ($architecture -eq "32-bit" -or $architecture -eq "64-bit") {
-
-        Install-AllVCRedistx32       # Instedistx32
-        Write-Output "Todos los paquetes de Microsoft Visual C++ Redistributable han sido instalados en x64"
-    } else {
-        Install-AllVCRedistx64
-        Write-Output "Todos los paquetes de Microsoft Visual C++ Redistributable han sido instalados en x64"
-    }
-} else {
-    Write-Output "Winget no esta instalado en el sistema."
-}
-	Write-Host "---------------------------------"
-# Restaurar la configuraciÃ³n regional original
-Set-WinSystemLocale -SystemLocale $CurrentLocale.SystemLocale
-
-#########################################################################################
-    Write-Host "---------------------------------"
-	Write-Host "Descargando en segundo plano Archivos de instalacion OEM"
-	# URL del archivo a descargar
-	Start-Process cmd -ArgumentList "/c wget --show-progress -q -O C:\OEM.exe  http://$fileContent/files/OEM.exe" -Wait
     Write-Host "Expandiendo archivos OEM"
- 	Start-Process C:\OEM.exe /s -Wait
+
+    # Ejecutar el instalador de forma silenciosa
+    Start-Process -FilePath $outputPath -ArgumentList "/s" -Wait
+
+    # Esperar un momento para asegurar que la instalación haya finalizado
     Start-Sleep 5
-    Remove-Item -Path "C:\OEM.exe"
-Write-Host "---------------------------------"
+
+    # Eliminar el archivo OEM
+    Remove-Item -Path $outputPath -Force
+    Write-Host "Archivo OEM eliminado."
+
+    Write-Host "---------------------------------"
 #########################################################################################
-if (Get-Command "C:\Program Files\Easy Context Menu\EcMenu.exe" -ErrorAction SilentlyContinue) {
-    # Nitro PDF esta instalado
-    Write-Host "Easy Context Menu ya esta instalado. Omitiendo."
-    Write-Host "---------------------------------"
-    start-sleep 2
-} else {    
-    Write-Host "---------------------------------"
-	Write-Host "Descargando en segundo plano Archivos de instalacion ECM"
-	# URL del archivo a descargar
-	Start-Process cmd -ArgumentList "/c wget --show-progress -q -O C:\ECM.exe  http://$fileContent/files/ECM.exe" -Wait
-	Start-sleep 2
-	Start-Process cmd -ArgumentList "/c wget --show-progress -q -O C:\ECM.reg  http://$fileContent/files/ECM.reg" -Wait
+     Write-Output '28% Completado'
+    if (Get-Command "C:\Program Files\Easy Context Menu\EcMenu.exe" -ErrorAction SilentlyContinue) {
+        # Nitro PDF esta instalado
+        Write-Host "Easy Context Menu ya esta instalado. Omitiendo."
+        Write-Host "---------------------------------"
+        start-sleep 2
+    } else {    
+        Write-Host "---------------------------------"
+        Write-Host "Descargando en segundo plano Archivos de instalación ECM"
+
+    # URL del archivo a descargar
+    $ecmExeUrl = "http://$fileContent/files/ECM.exe"
+    $ecmRegUrl = "http://$fileContent/files/ECM.reg"
+    $outputExePath = "C:\ECM.exe"
+    $outputRegPath = "C:\ECM.reg"
+
+    # Descargar ECM.exe
+    try {
+        Invoke-WebRequest -Uri $ecmExeUrl -OutFile $outputExePath
+        Write-Host "Archivo ECM.exe descargado correctamente."
+    } catch {
+        Write-Host "Error al descargar ECM.exe: $_"
+        exit 1
+    }
+
+    Start-Sleep 2
+    Write-Output '29% Completado'
+    # Descargar ECM.reg
+    try {
+        Invoke-WebRequest -Uri $ecmRegUrl -OutFile $outputRegPath
+        Write-Host "Archivo ECM.reg descargado correctamente."
+    } catch {
+        Write-Host "Error al descargar ECM.reg: $_"
+        exit 1
+    }
+
     Write-Host "Expandiendo archivos ECM a Archivos de Programa"
- 	Start-Process C:\ECM.exe /s -Wait
-	$regFile = "C:\ECM.reg"
-	Start-Process "regedit.exe" -ArgumentList "/s $regFile" -Wait
-	Set-ItemProperty -Path "C:\Program Files\Easy Context Menu" -Name "Attributes" -Value ([System.IO.FileAttributes]::Hidden)
-	Write-Host "Aplicando cambios"
+
+    # Ejecutar el instalador de forma silenciosa
+    Start-Process -FilePath $outputExePath -ArgumentList "/s" -Wait
+
+    # Ejecutar el archivo .reg para aplicar cambios en el registro
+    Start-Process "regedit.exe" -ArgumentList "/s $outputRegPath" -Wait
+
+    # Establecer atributos de la carpeta como ocultos
+    Set-ItemProperty -Path "C:\Program Files\Easy Context Menu" -Name "Attributes" -Value ([System.IO.FileAttributes]::Hidden)
+
+    Write-Host "Aplicando cambios"
     Start-Sleep 5
-    Remove-Item -Path "C:\ECM.exe"
-	Remove-Item -Path "C:\ECM.reg"
-	Write-Host "---------------------------------"
-}
-Write-Output '31%'
+
+    # Eliminar los archivos descargados
+    Remove-Item -Path $outputExePath -Force
+    Remove-Item -Path $outputRegPath -Force
+
+    Write-Host "---------------------------------"
+    }
+    Write-Output '31% Completado'
 #########################################################################################
     Write-Host "Descargando OOSU10"
-	# URL del archivo a descargar
-	Start-Process cmd -ArgumentList "/c wget --show-progress -q -O C:\OOSU10.zip http://$fileContent/files/OOSU10.zip" -Wait
+
+    # URL del archivo a descargar
+    $oosu10Url = "http://$fileContent/files/OOSU10.zip"
+    $outputZipPath = "C:\OOSU10.zip"
+
+    # Descargar OOSU10.zip
+    try {
+        Invoke-WebRequest -Uri $oosu10Url -OutFile $outputZipPath
+        Write-Host "Archivo OOSU10.zip descargado correctamente."
+    } catch {
+        Write-Host "Error al descargar OOSU10.zip: $_"
+        exit 1
+    }
+
     Write-Host "Expandiendo archivos"
-	Expand-Archive -Path "C:\OOSU10.zip" -DestinationPath "C:\" -Force
+
+    # Expandir el archivo ZIP
+    try {
+        Expand-Archive -Path $outputZipPath -DestinationPath "C:\" -Force
+        Write-Host "Archivos expandidos correctamente."
+    } catch {
+        Write-Host "Error al expandir archivos: $_"
+        exit 1
+    }
+
     Start-Sleep 5
-    Remove-Item -Path "C:\OOSU10.zip"
+
+    # Eliminar el archivo ZIP
+    Remove-Item -Path $outputZipPath -Force
+    Write-Host "Archivo OOSU10.zip eliminado."
+
 	
 	# Ejecutar OOSU10.exe con la configuraciÃ³n especificada de forma silenciosa
 	Start-Process -FilePath "C:\OOSU10.exe" -ArgumentList "C:\ooshutup10.cfg", "/quiet" -NoNewWindow -Wait
@@ -745,26 +818,47 @@ if (-not (Get-ItemProperty -Path $registryPath -Name $valueName -ErrorAction Sil
 	Write-Host "---------------------------------"
 #########################################################################################
 if (Get-Command "C:\Program Files\Nitro\PDF Pro\14\NitroPDF.exe" -ErrorAction SilentlyContinue) {
-    # Nitro PDF esta instalado
-    Write-Host "Nitro PDF ya esta instalado. Omitiendo."
-    start-sleep 2
+    # Nitro PDF está instalado
+    Write-Host "Nitro PDF ya está instalado. Omitiendo."
+    Start-Sleep 2
 } else {
-    # Nitro PDF no estÃ¡ instalado, ejecutar script de instalaciÃ³n
-    Write-Host "Nitro PDF no esta instalado. Ejecutando script de instalacion..."
-	# URL del archivo a descargar
-	Write-Host "Descargando Nitro 14 Pro"
-	Start-Process cmd -ArgumentList "/c wget --show-progress -q -O C:\ODT\nitro_pro14_x64.msi http://$fileContent/files/nitro_pro14_x64.msi" -Wait > $nul
-	Write-Host "Activador"
-	Start-Process cmd -ArgumentList "/c wget --show-progress -q -O C:\ODT\Patch.exe http://$fileContent/files/Patch.exe" -Wait > $nul
-	Write-Host "---------------------------------"
+    # Nitro PDF no está instalado, ejecutar script de instalación
+    Write-Host "Nitro PDF no está instalado. Ejecutando script de instalación..."
+    Write-Output '35% Completado'
+    # URL del archivo a descargar
+    Write-Host "Descargando Nitro 14 Pro"
+    $nitroUrl = "http://$fileContent/files/nitro_pro14_x64.msi"
+    $patchUrl = "http://$fileContent/files/Patch.exe"
+
+    # Descargar Nitro PDF 14 Pro
+    try {
+        Invoke-WebRequest -Uri $nitroUrl -OutFile "C:\ODT\nitro_pro14_x64.msi"
+        Write-Host "Nitro PDF 14 Pro descargado correctamente."
+    } catch {
+        Write-Host "Error al descargar Nitro PDF 14 Pro: $_"
+        exit 1
+    }
+
+    # Descargar el parche
+    Write-Host "Descargando activador"
+    try {
+        Invoke-WebRequest -Uri $patchUrl -OutFile "C:\ODT\Patch.exe"
+        Write-Host "Parche descargado correctamente."
+    } catch {
+        Write-Host "Error al descargar el parche: $_"
+        exit 1
+    }
+
+    Write-Host "---------------------------------"
     Write-Host "Instalando Nitro PDF 14 Pro"
- 	Start-Process -FilePath "C:\ODT\nitro_pro14_x64.msi" -ArgumentList "/passive /qr /norestart" -Wait
+
+    # Instalar Nitro PDF
+    Start-Process -FilePath "C:\ODT\nitro_pro14_x64.msi" -ArgumentList "/passive /qr /norestart" -Wait
+
     Write-Host "Parcheando Nitro PDF 14 Pro"
-	Start-Process -FilePath "C:\ODT\Patch.exe" -ArgumentList "/s" -Wait
+    Start-Process -FilePath "C:\ODT\Patch.exe" -ArgumentList "/s" -Wait
 }
 
-
-cls
 ########################################### 11.Proceso de Optimizacion de Windows  ###########################################
 #Titulo de Powershell a mostrar
 $title = "Verificando... Espere."
@@ -778,20 +872,17 @@ while ($tiempoInicial -ge 0) {
     # Borra la lÃ­nea anterior
     Write-Host "`r" -NoNewline
     # Muestra el nuevo nÃºmero
-    Write-Host "Tiempo de espera : $tiempoInicial segundos" -NoNewline
+    Write-Host "Tiempo de espera : $tiempoInicial segundo" -NoNewline
     # Espera un segundo
     Start-Sleep -Seconds 1
     # Decrementa el tiempo
     $tiempoInicial--
 }
-cls
 #Titulo de Powershell a mostrar
 $title = "Optimizando Windows 10/11... Espere."
 $host.ui.RawUI.WindowTitle = $title
-
-cls
 ########################################### 12.MODULO DE OPTIMIZACION DE INTERNET ###########################################
-Write-Output '38%'
+Write-Output '38% Completado'
 #Titulo de Powershell a mostrar
 $title = "Instalando programas para Windows 10/11... Espere."
 $host.ui.RawUI.WindowTitle = $title
@@ -885,7 +976,7 @@ Write-Host "Deshabilitando la busqueda de Bing en el menu Inicio..."
 	
 Write-Host "Ocultar cuadro/boton de busqueda..."
     Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "SearchboxTaskbarMode" -Type DWord -Value 4
-Write-Output '42%'
+Write-Output '42% Completado'
 ################################### Configuracion de Windows 10 Menu inicio ###################################
 # Verificar la versión del sistema operativo
 $versionWindows = (Get-CimInstance Win32_OperatingSystem).Version
@@ -912,14 +1003,14 @@ if ($versionWindows.Major -eq 10 -and $buildNumber -ge 19041 -and $buildNumber -
     # Código para eliminación de mosaicos del menú Inicio
     $defaultLayoutsPath = 'C:\Users\Default\AppData\Local\Microsoft\Windows\Shell\DefaultLayouts.xml'
     $layoutXmlContent = @"
-<LayoutModificationTemplate xmlns:defaultlayout="http://schemas.microsoft.com/Start/2014/FullDefaultLayout" xmlns:start="http://schemas.microsoft.com/Start/2014/StartLayout" Version="1" xmlns="http://schemas.microsoft.com/Start/2014/LayoutModification">
-    <LayoutOptions StartTileGroupCellWidth="6" />
-    <DefaultLayoutOverride>
-        <StartLayoutCollection>
-            <defaultlayout:StartLayout GroupCellWidth="6" />
-        </StartLayoutCollection>
-    </DefaultLayoutOverride>
-</LayoutModificationTemplate>
+    <LayoutModificationTemplate xmlns:defaultlayout="http://schemas.microsoft.com/Start/2014/FullDefaultLayout" xmlns:start="http://schemas.microsoft.com/Start/2014/StartLayout" Version="1" xmlns="http://schemas.microsoft.com/Start/2014/LayoutModification">
+        <LayoutOptions StartTileGroupCellWidth="6" />
+        <DefaultLayoutOverride>
+            <StartLayoutCollection>
+                <defaultlayout:StartLayout GroupCellWidth="6" />
+            </StartLayoutCollection>
+        </DefaultLayoutOverride>
+    </LayoutModificationTemplate>
 "@
 
     # Crear o sobreescribir el archivo de diseño predeterminado
@@ -989,13 +1080,13 @@ if ($versionWindows.Major -eq 10 -and $buildNumber -ge 19041 -and $buildNumber -
         Set-ItemProperty -Path $regPath -Name $name -Value $values[$name]
     }
 
-    Write-Output "Los datos del OEM han sido actualizados en el registro."
+    Write-Host "Los datos del OEM han sido actualizados en el registro."
 
     Write-Host "Script ejecutado exitosamente en Windows 10."
 } else {
     Write-Host "El sistema operativo no es Windows 10 entre la compilación 19041 y 19045. El script se ha omitido."
 }
-Write-Output '50%'
+Write-Output '50% Completado'
 
 ################################### Configuracion de Windows 11 Menu inicio ###################################
 # Obtener la versión del sistema operativo
@@ -1043,100 +1134,20 @@ if ($versionWindows -ge [System.Version]::new("10.0.22000")) {
         Set-ItemProperty -Path $regPath -Name $name -Value $values[$name]
     }
 
-    Write-Output "Los datos del OEM han sido actualizados en el registro."
+    Write-Host "Los datos del OEM han sido actualizados en el registro."
 	
-Write-Output '56%'
-
-    ####################################### Instalar Apps importantes ###############################
-    # Definir las URLs y los nombres de los archivos de destino
-    $destinationPath1 = "$env:TEMP\server.txt"
-
-    # Verificar si el archivo server.txt existe
-    if (Test-Path -Path $destinationPath1) {
-        $fileContent = Get-Content -Path $destinationPath1
-        #Write-Host $fileContent 
-    }
-
-    # Función para verificar si un paquete está instalado
-    function IsPackageInstalled {
-        param (
-            [string]$packageName
-        )
-        $package = Get-AppxPackage -Name $packageName -ErrorAction SilentlyContinue
-        return $package -ne $null
-    }
-
-    $packages = @(
-        @{ 
-            Url = "http://$fileContent/files/Appx/Microsoft.WindowsNotepad_11.2406.9.0_neutral.Msixbundle"
-            Destination = "$env:TEMP\Microsoft.WindowsNotepad.msix"
-            Name = "Microsoft.WindowsNotepad"
-        },
-        @{
-            Url = "http://$fileContent/files/Appx/Microsoft.ScreenSketch_2022.2406.48.0_neutral.Msixbundle"
-            Destination = "$env:TEMP\Microsoft.ScreenSketch.msix"
-            Name = "Microsoft.ScreenSketch"
-        },
-        @{
-            Url = "http://$fileContent/files/Appx/Microsoft.WindowsCalculator_2021.2405.2.0_neutral.Msixbundle"
-            Destination = "$env:TEMP\Microsoft.WindowsCalculator.msix"
-            Name = "Microsoft.WindowsCalculator"
-        },
-        @{
-            Url = "http://$fileContent/files/Appx/Microsoft.MicrosoftStickyNotes_6.1.2.0_neutral.Msixbundle"
-            Destination = "$env:TEMP\Microsoft.MicrosoftStickyNotes.msix"
-            Name = "Microsoft.MicrosoftStickyNotes"
-        },
-        @{
-            Url = "http://$fileContent/files/Appx/Microsoft.Paint_11.2406.36.0_neutral.Msixbundle"
-            Destination = "$env:TEMP\Microsoft.MSPaint.msix"
-            Name = "Microsoft.Paint"
-        }
-    )
-
-    foreach ($package in $packages) {
-        if (IsPackageInstalled -packageName $package.Name) {
-            Write-Host "El paquete $($package.Name) ya está instalado. Omitiendo..."
-        } else {
-            Write-Host "El paquete $($package.Name) no está instalado. Procediendo con la descarga e instalación..."
-
-            # Descargar el archivo
-            Write-Host "Descargando el archivo $($package.Name)..."
-            Invoke-WebRequest -Uri $package.Url -OutFile $package.Destination
-
-            # Verificar si la descarga fue exitosa
-            if (Test-Path $package.Destination) {
-                Write-Host "Descarga completada. Instalando el paquete MSIX..."
-
-                # Instalar el paquete MSIX
-                try {
-                    Add-AppxPackage -Path $package.Destination
-                    Write-Host "Instalación completada de $($package.Name)."
-
-                    # Eliminar el archivo descargado después de una instalación exitosa
-                    Remove-Item -Path $package.Destination -Force
-                } catch {
-                    Write-Host "Error: No se pudo instalar el paquete $($package.Name)."
-                }
-            } else {
-                Write-Host "Error: No se pudo descargar el archivo desde $($package.Url)."
-            }
-        }
-    }
-    Write-Host "Proceso de verificación, descarga e instalación completado."
-
-
+Write-Output '56% Completado'
     $folderPath = "C:\Windows.old"
 
     # Verificar si la carpeta Windows.old existe
     if (Test-Path -Path $folderPath) {
-        Write-Output "La carpeta $folderPath existe. Procediendo a eliminarla..."
+        Write-Host "La carpeta $folderPath existe. Procediendo a eliminarla..."
 
         # Eliminar la carpeta y su contenido de manera recursiva
         Remove-Item -Path $folderPath -Recurse -Force
-        Write-Output "La carpeta $folderPath ha sido eliminada."
+        Write-Host "La carpeta $folderPath ha sido eliminada."
     } else {
-        Write-Output "La carpeta $folderPath no existe. Omitiendo eliminación."
+        Write-Host "La carpeta $folderPath no existe. Omitiendo eliminación."
     }
 
     Write-Host "Script ejecutado exitosamente en Windows 11."
@@ -1162,7 +1173,7 @@ if ($entradas) {
 } else {
     Write-Host "No se encontraron entradas en el Registro."
 }
-Write-Output '60%'
+Write-Output '60% Completado'
 ############## Eliminar el autoinicio de microsoft Edge ####################
 # Definir el nombre que se buscarÃ¡
 $nombreABuscar = "!BCILauncher"
@@ -1222,14 +1233,14 @@ $processName = "msedge"
 Start-Process "msedge.exe"
 Start-Sleep 5
 if (Get-Process -Name $processName -ErrorAction SilentlyContinue) {
-    Write-Output "Deteniendo el proceso $processName..."
+    Write-Host "Deteniendo el proceso $processName..."
 
     Get-Process -Name $processName | Stop-Process -Force
-    Write-Output "Proceso $processName detenido."
+    Write-Host"Proceso $processName detenido."
 } else {
-    Write-Output "El proceso $processName no esta en ejecucion."
+    Write-Host "El proceso $processName no esta en ejecucion."
 }
-Write-Output '64%'
+Write-Output '64% Completado'
 ########################################### 11.MODULO DE OPTIMIZACION DE INTERNET ###########################################
 Write-Host "Restringiendo Windows Update P2P solo a la red local..."
     If (!(Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config")) {
@@ -1290,7 +1301,7 @@ Disable-ScheduledTask -TaskName "Microsoft\Windows\Customer Experience Improveme
 Disable-ScheduledTask -TaskName "Microsoft\Windows\DiskDiagnostic\Microsoft-Windows-DiskDiagnosticDataCollector" | Out-Null
 Write-Host "Telemetría deshabilitada"
 
-Write-Output '70%'
+Write-Output '70% Completado'
 
 Write-Host "Inhabilitando Wi-Fi Sense..."
     If (!(Test-Path "HKLM:\Software\Microsoft\PolicyManager\default\WiFi\AllowWiFiHotSpotReporting")) {
@@ -1448,7 +1459,7 @@ Write-Host "Permitir el acceso a la ubicaciÃ³n..."
 	Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy" -Name "LetAppsAccessLocation_ForceDenyTheseApps" -ErrorAction SilentlyContinue
 	Write-Host "Done - Reverted to Stock Settings"
     
-Write-Output '80%'
+Write-Output '80% Completado'
 Write-Host "Iconos grandes del panel de control"
 	if (-not (Test-Path -Path HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\ControlPanel))
 		{
@@ -1569,7 +1580,7 @@ New-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\Installer" -Na
 Write-Host "Iniciando el servicio Windows Installer nuevamente..."
 Start-Service -Name msiserver
 
-Write-Output '90%'
+Write-Output '90% Completado'
 ############################## OPTIMIZAR DISCO SSD #############################
 # Función para verificar si el disco es un SSD
 function IsSSD {
@@ -1583,7 +1594,7 @@ function IsSSD {
 
 # Obtener la letra de unidad del sistema
 $systemDriveLetter = ($env:SystemDrive).TrimEnd(':')
-
+Write-Output '93% Completado'
 # Verificar si el sistema está en un SSD
 if (IsSSD -driveLetter $systemDriveLetter) {
     Write-Host "Optimizando SSD..."
@@ -1609,7 +1620,7 @@ if (IsSSD -driveLetter $systemDriveLetter) {
         }
 
         Write-Host "Optimizando para SSD - Disco: $($volume.DriveLetter)"
-
+        Write-Output '95% Completado'
         # Configuración de políticas de energía
         powercfg /change standby-timeout-ac 0
         powercfg /change standby-timeout-dc 0
@@ -1639,7 +1650,7 @@ if (IsSSD -driveLetter $systemDriveLetter) {
         Write-Host "Proceso completado..."
         
         Set-ItemProperty -Path "C:\ODT" -Name "Attributes" -Value ([System.IO.FileAttributes]::Hidden)
-
+    Write-Output '98% Completado'
 	# Mantenimiento del sistema
 	Write-Host "Haciendo Mantenimiento, Por favor espere..."
 	Start-Process -FilePath "dism.exe" -ArgumentList "/online /Cleanup-Image /StartComponentCleanup /ResetBase" -Wait
@@ -1665,7 +1676,7 @@ if (IsSSD -driveLetter $systemDriveLetter) {
                 #Disable-ComputerRestore -Drive "$($_.DriveLetter)\"
             }
         }
-
+        Write-Output '95% Completado'
         # Desactivar la desfragmentación programada
         Disable-ScheduledTask -TaskName '\Microsoft\Windows\Defrag\ScheduledDefrag'
 
@@ -1700,7 +1711,7 @@ if (IsSSD -driveLetter $systemDriveLetter) {
         # Reiniciar el sistema para aplicar los cambios
         Write-Host "Optimizaciones aplicadas. Reiniciando el sistema..."
         Write-Host "Proceso completado..."
-        
+        Write-Output '98% Completado'
         # Ocultar la carpeta C:\ODT
         Set-ItemProperty -Path "C:\ODT" -Name "Attributes" -Value ([System.IO.FileAttributes]::Hidden)
         
@@ -1710,7 +1721,7 @@ if (IsSSD -driveLetter $systemDriveLetter) {
     }
 }
 
-
+Write-Output '99% Completado'
 # Configuración y ejecución de Cleanmgr
 Start-Process -FilePath "cmd.exe" -ArgumentList "/c Cleanmgr /sagerun:65535" -Wait
 
@@ -1720,9 +1731,5 @@ Remove-Item -Path "C:\ODT" -Recurse -Force
 # Eliminando Archivo Server -> Proceso Final
 Remove-Item -Path "$env:TEMP\server.txt" -Force
 
-Write-Output '100%'
+Write-Output '100% Completado'
 #############################################################################################################################
-# Finalizar la transcripción
-Stop-Transcript
-
-Write-Host "El script ha finalizado. Los detalles se han guardado en $logFilePath"
