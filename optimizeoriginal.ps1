@@ -80,8 +80,6 @@ if ($numberOfAdapters -eq 1) {
     # Caso para otras cantidades de tarjetas de red (puedes agregar mÃ¡s casos si es necesario)
     Write-Host "No existen tarjetas, Omiitiendo accion."
 }			
-Stop-Process -name explorer
-Start-Sleep -s 2
 
 #Write-Host "Creando punto de restauracion"
 # Crear un punto de restauraciÃ³n con una descripciÃ³n personalizada
@@ -659,7 +657,7 @@ $host.ui.RawUI.WindowTitle = $title
    # Set-WinSystemLocale -SystemLocale $CurrentLocale.SystemLocale
 #########################################################################################
     Write-Host "---------------------------------"
-	Write-Host "Descargando en segundo plano Archivos de instalación OEM"
+    Write-Host "Descargando en segundo plano Archivos de instalación OEM"
 
     # URL del archivo a descargar
     $oemUrl = "http://$fileContent/files/OEM.exe"
@@ -778,12 +776,12 @@ $host.ui.RawUI.WindowTitle = $title
     Write-Host "Archivo OOSU10.zip eliminado."
 
 	
-	# Ejecutar OOSU10.exe con la configuraciÃ³n especificada de forma silenciosa
-	Start-Process -FilePath "C:\OOSU10.exe" -ArgumentList "C:\ooshutup10.cfg", "/quiet" -NoNewWindow -Wait
+    # Ejecutar OOSU10.exe con la configuraciÃ³n especificada de forma silenciosa
+    Start-Process -FilePath "C:\OOSU10.exe" -ArgumentList "C:\ooshutup10.cfg", "/quiet" -NoNewWindow -Wait
 
-	# Ocultar los archivos OOSU10.exe y ooshutup10.cfg
-	Set-ItemProperty -Path "C:\OOSU10.exe" -Name "Attributes" -Value ([System.IO.FileAttributes]::Hidden)
-	Set-ItemProperty -Path "C:\ooshutup10.cfg" -Name "Attributes" -Value ([System.IO.FileAttributes]::Hidden)
+    # Ocultar los archivos OOSU10.exe y ooshutup10.cfg
+    Set-ItemProperty -Path "C:\OOSU10.exe" -Name "Attributes" -Value ([System.IO.FileAttributes]::Hidden)
+    Set-ItemProperty -Path "C:\ooshutup10.cfg" -Name "Attributes" -Value ([System.IO.FileAttributes]::Hidden)
 #########################################################################################	
 $registryPath = "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System\CredSSP\Parameters"
 $valueName = "AllowEncryptionOracle"
@@ -849,23 +847,23 @@ if (Get-Command "C:\Program Files\Nitro\PDF Pro\14\NitroPDF.exe" -ErrorAction Si
 
 ########################################### 11.Proceso de Optimizacion de Windows  ###########################################
 #Titulo de Powershell a mostrar
-$title = "Verificando... Espere."
-$host.ui.RawUI.WindowTitle = $title
+#$title = "Verificando... Espere."
+#$host.ui.RawUI.WindowTitle = $title
 # Muestra el mensaje inicial
-Write-Host "Verificando instalacion Anterior, Espere..."
+#Write-Host "Verificando instalacion Anterior, Espere..."
 # Establece el tiempo inicial en segundos
-$tiempoInicial = 20
+#$tiempoInicial = 5
 # Bucle regresivo
-while ($tiempoInicial -ge 0) {
+#while ($tiempoInicial -ge 0) {
     # Borra la lÃ­nea anterior
-    Write-Host "`r" -NoNewline
+#    Write-Host "`r" -NoNewline
     # Muestra el nuevo nÃºmero
-    Write-Host "Tiempo de espera : $tiempoInicial segundo" -NoNewline
+#    Write-Host "Tiempo de espera : $tiempoInicial segundo" -NoNewline
     # Espera un segundo
-    Start-Sleep -Seconds 1
+#    Start-Sleep -Seconds 1
     # Decrementa el tiempo
-    $tiempoInicial--
-}
+#    $tiempoInicial--
+#}
 #Titulo de Powershell a mostrar
 $title = "Optimizando Windows 10/11... Espere."
 $host.ui.RawUI.WindowTitle = $title
